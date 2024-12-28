@@ -2,6 +2,9 @@
 Include/
 Lib/
 Scripts/
+share/
+etc/
+.ipynb_checkpoints/
 
 *.cfg
 
