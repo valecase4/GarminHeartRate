@@ -3,6 +3,17 @@ from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
 import csv
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+load_dotenv()
+email = os.getenv("EMAIL")
+password = os.getenv("PASSWORD")
+
+client = Garmin(email=email, password=password)
+client.login()
 
 dates = []
 start_date = datetime(2024, 12, 21)
@@ -15,19 +26,33 @@ while current_date <= end_date:
     current_date += delta
     dates.append(date)
 
-load_dotenv()
-
-email = os.getenv("EMAIL")
-password = os.getenv("PASSWORD")
-
-client = Garmin(email=email, password=password)
-client.login()
+def fetch_heart_rate_data(date, max_retries=5):
+    retries = 0
+    delay = 1 
+    while retries < max_retries:
+        try:
+            heart_rates_data = client.get_heart_rates(cdate=date)
+            return heart_rates_data
+        except Exception as e:
+            retries += 1
+            logging.warning(f"Errore durante la richiesta per {date}: {e}. Tentativo {retries}/{max_retries}")
+            time.sleep(delay)
+            delay *= 2
+    logging.error(f"Impossibile ottenere i dati per {date} dopo {max_retries} tentativi.")
+    return None
 
 for date in dates:
-    heart_rates_data = client.get_heart_rates(cdate=date)
-    data = heart_rates_data['heartRateValues']
+    logging.info(f"Estrazione dati per {date}...")
+    heart_rates_data = fetch_heart_rate_data(date)
 
-    with open(f"data/raw/{date}.csv", "w", newline="") as file:
+    if not heart_rates_data:
+        logging.error(f"Dati mancanti per {date}. Procedo con il giorno successivo.")
+        continue
+
+    data = heart_rates_data['heartRateValues']
+    file_path = f"data/raw/heart_rates/{date}.csv"
+
+    with open(file_path, "w", newline="") as file:
         fieldnames = ['timestamp', 'heart_rates']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
@@ -36,9 +61,6 @@ for date in dates:
             timestamp, heart_rates = x[0], x[1]
             timestamp = timestamp / 1000
             dt = datetime.fromtimestamp(timestamp).strftime("%H:%M")
-
             writer.writerow({'timestamp': dt, 'heart_rates': heart_rates})
 
-
-            
-
+    logging.info(f"Dati salvati per {date}: {file_path}")
