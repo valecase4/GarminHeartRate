@@ -99,5 +99,3 @@ for date in dates:
             sleep_type = x['activityLevel']
             writer.writerow({'start_time': start_time, 'end_time': end_time, 'sleep_type': sleep_type})
 
-# for record in client.get_sleep_data(cdate='2024-12-23')['sleepLevels']:
-#     print(record)
